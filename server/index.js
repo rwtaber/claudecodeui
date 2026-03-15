@@ -956,11 +956,46 @@ app.get('/api/projects/:projectName/files', authenticateToken, async (req, res) 
             return res.status(404).json({ error: `Project path not found: ${actualPath}` });
         }
 
-        const files = await getFileTree(actualPath, 10, 0, true);
-        const hiddenFiles = files.filter(f => f.name.startsWith('.'));
+        const files = await getFileTree(actualPath, 0, 0, true);
         res.json(files);
     } catch (error) {
         console.error('[ERROR] File tree error:', error.message);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// GET /api/projects/:projectName/files/children - Lazy-load children of a directory
+app.get('/api/projects/:projectName/files/children', authenticateToken, async (req, res) => {
+    try {
+        const { path: dirPath } = req.query;
+        if (!dirPath) {
+            return res.status(400).json({ error: 'path query parameter is required' });
+        }
+
+        let projectRoot;
+        try {
+            projectRoot = await extractProjectDirectory(req.params.projectName);
+        } catch (error) {
+            projectRoot = req.params.projectName.replace(/-/g, '/');
+        }
+
+        // Security: ensure requested path is within project root
+        const resolved = path.resolve(dirPath);
+        const normalizedRoot = path.resolve(projectRoot);
+        if (!resolved.startsWith(normalizedRoot + path.sep) && resolved !== normalizedRoot) {
+            return res.status(403).json({ error: 'Path must be under project root' });
+        }
+
+        try {
+            await fsPromises.access(resolved);
+        } catch (e) {
+            return res.status(404).json({ error: `Directory not found: ${dirPath}` });
+        }
+
+        const children = await getFileTree(resolved, 0, 0, true);
+        res.json(children);
+    } catch (error) {
+        console.error('[ERROR] File children error:', error.message);
         res.status(500).json({ error: error.message });
     }
 });

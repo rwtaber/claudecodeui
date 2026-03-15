@@ -6,18 +6,66 @@ import type { FileTreeNode } from '../types/types';
 type UseFileTreeDataResult = {
   files: FileTreeNode[];
   loading: boolean;
+  loadingDirs: Set<string>;
   refreshFiles: () => void;
+  loadChildren: (projectName: string, dirPath: string) => Promise<void>;
 };
+
+function mergeChildrenAtPath(
+  nodes: FileTreeNode[],
+  targetPath: string,
+  children: FileTreeNode[],
+): FileTreeNode[] {
+  return nodes.map((node) => {
+    if (node.path === targetPath) {
+      return { ...node, children };
+    }
+    if (node.children && node.type === 'directory') {
+      return { ...node, children: mergeChildrenAtPath(node.children, targetPath, children) };
+    }
+    return node;
+  });
+}
 
 export function useFileTreeData(selectedProject: Project | null): UseFileTreeDataResult {
   const [files, setFiles] = useState<FileTreeNode[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadingDirs, setLoadingDirs] = useState<Set<string>>(() => new Set());
   const [refreshKey, setRefreshKey] = useState(0);
   const abortControllerRef = useRef<AbortController | null>(null);
 
   const refreshFiles = useCallback(() => {
     setRefreshKey((prev) => prev + 1);
   }, []);
+
+  const loadChildren = useCallback(
+    async (projectName: string, dirPath: string) => {
+      setLoadingDirs((prev) => {
+        const next = new Set(prev);
+        next.add(dirPath);
+        return next;
+      });
+
+      try {
+        const response = await api.getFileChildren(projectName, dirPath);
+        if (!response.ok) {
+          console.error('Failed to load children for', dirPath);
+          return;
+        }
+        const children = (await response.json()) as FileTreeNode[];
+        setFiles((prev) => mergeChildrenAtPath(prev, dirPath, children));
+      } catch (error) {
+        console.error('Error loading children:', error);
+      } finally {
+        setLoadingDirs((prev) => {
+          const next = new Set(prev);
+          next.delete(dirPath);
+          return next;
+        });
+      }
+    },
+    [],
+  );
 
   useEffect(() => {
     const projectName = selectedProject?.name;
@@ -84,6 +132,8 @@ export function useFileTreeData(selectedProject: Project | null): UseFileTreeDat
   return {
     files,
     loading,
+    loadingDirs,
     refreshFiles,
+    loadChildren,
   };
 }

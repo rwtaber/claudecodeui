@@ -10,6 +10,7 @@ type FileTreeNodeProps = {
   level: number;
   viewMode: FileTreeViewMode;
   expandedDirs: Set<string>;
+  loadingDirs?: Set<string>;
   onItemClick: (item: FileTreeNodeType) => void;
   renderFileIcon: (filename: string) => ReactNode;
   formatFileSize: (bytes?: number) => string;
@@ -64,6 +65,7 @@ export default function FileTreeNode({
   level,
   viewMode,
   expandedDirs,
+  loadingDirs,
   onItemClick,
   renderFileIcon,
   formatFileSize,
@@ -86,6 +88,7 @@ export default function FileTreeNode({
   const isDirectory = item.type === 'directory';
   const isOpen = isDirectory && expandedDirs.has(item.path);
   const hasChildren = Boolean(isDirectory && item.children && item.children.length > 0);
+  const isLoadingChildren = isDirectory && loadingDirs?.has(item.path);
   const isRenaming = renamingItem?.path === item.path;
 
   const nameClassName = cn(
@@ -199,20 +202,30 @@ export default function FileTreeNode({
         rowContent
       )}
 
-      {isDirectory && isOpen && hasChildren && (
+      {isDirectory && isOpen && (
         <div className="relative">
           <span
             className="absolute bottom-0 top-0 border-l border-border/40"
             style={{ left: `${level * 16 + 14}px` }}
             aria-hidden="true"
           />
-          {item.children?.map((child) => (
+          {isLoadingChildren && (
+            <div
+              className="flex items-center gap-2 py-1 text-xs text-muted-foreground"
+              style={{ paddingLeft: `${(level + 1) * 16 + 4}px` }}
+            >
+              <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
+              Loading…
+            </div>
+          )}
+          {hasChildren && item.children?.map((child) => (
             <FileTreeNode
               key={child.path}
               item={child}
               level={level + 1}
               viewMode={viewMode}
               expandedDirs={expandedDirs}
+              loadingDirs={loadingDirs}
               onItemClick={onItemClick}
               renderFileIcon={renderFileIcon}
               formatFileSize={formatFileSize}
