@@ -7,8 +7,10 @@ type UseFileTreeDataResult = {
   files: FileTreeNode[];
   loading: boolean;
   loadingDirs: Set<string>;
+  errorDirs: Set<string>;
   refreshFiles: () => void;
   loadChildren: (projectName: string, dirPath: string) => Promise<void>;
+  retryLoadChildren: (projectName: string, dirPath: string) => Promise<void>;
 };
 
 function mergeChildrenAtPath(
@@ -27,19 +29,42 @@ function mergeChildrenAtPath(
   });
 }
 
+function collectLoadedDirs(nodes: FileTreeNode[], set: Set<string>) {
+  for (const node of nodes) {
+    if (node.type === 'directory' && node.children && node.children.length > 0) {
+      set.add(node.path);
+    }
+  }
+}
+
 export function useFileTreeData(selectedProject: Project | null): UseFileTreeDataResult {
   const [files, setFiles] = useState<FileTreeNode[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadingDirs, setLoadingDirs] = useState<Set<string>>(() => new Set());
+  const [errorDirs, setErrorDirs] = useState<Set<string>>(() => new Set());
   const [refreshKey, setRefreshKey] = useState(0);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const loadedDirsRef = useRef<Set<string>>(new Set());
 
   const refreshFiles = useCallback(() => {
+    loadedDirsRef.current.clear();
+    setErrorDirs(new Set());
     setRefreshKey((prev) => prev + 1);
   }, []);
 
   const loadChildren = useCallback(
     async (projectName: string, dirPath: string) => {
+      // Skip if already successfully loaded (cache hit)
+      if (loadedDirsRef.current.has(dirPath)) return;
+
+      // Clear any previous error for this path
+      setErrorDirs((prev) => {
+        if (!prev.has(dirPath)) return prev;
+        const next = new Set(prev);
+        next.delete(dirPath);
+        return next;
+      });
+
       setLoadingDirs((prev) => {
         const next = new Set(prev);
         next.add(dirPath);
@@ -50,12 +75,23 @@ export function useFileTreeData(selectedProject: Project | null): UseFileTreeDat
         const response = await api.getFileChildren(projectName, dirPath);
         if (!response.ok) {
           console.error('Failed to load children for', dirPath);
+          setErrorDirs((prev) => {
+            const next = new Set(prev);
+            next.add(dirPath);
+            return next;
+          });
           return;
         }
         const children = (await response.json()) as FileTreeNode[];
         setFiles((prev) => mergeChildrenAtPath(prev, dirPath, children));
+        loadedDirsRef.current.add(dirPath);
       } catch (error) {
         console.error('Error loading children:', error);
+        setErrorDirs((prev) => {
+          const next = new Set(prev);
+          next.add(dirPath);
+          return next;
+        });
       } finally {
         setLoadingDirs((prev) => {
           const next = new Set(prev);
@@ -67,12 +103,23 @@ export function useFileTreeData(selectedProject: Project | null): UseFileTreeDat
     [],
   );
 
+  const retryLoadChildren = useCallback(
+    async (projectName: string, dirPath: string) => {
+      // Clear cache entry so loadChildren doesn't short-circuit
+      loadedDirsRef.current.delete(dirPath);
+      return loadChildren(projectName, dirPath);
+    },
+    [loadChildren],
+  );
+
   useEffect(() => {
     const projectName = selectedProject?.name;
 
     if (!projectName) {
       setFiles([]);
       setLoading(false);
+      loadedDirsRef.current.clear();
+      setErrorDirs(new Set());
       return;
     }
 
@@ -104,6 +151,9 @@ export function useFileTreeData(selectedProject: Project | null): UseFileTreeDat
         const data = (await response.json()) as FileTreeNode[];
         if (isActive) {
           setFiles(data);
+          // Mark directories that arrived pre-populated from depth-1 fetch
+          loadedDirsRef.current.clear();
+          collectLoadedDirs(data, loadedDirsRef.current);
         }
       } catch (error) {
         if ((error as { name?: string }).name === 'AbortError') {
@@ -133,7 +183,9 @@ export function useFileTreeData(selectedProject: Project | null): UseFileTreeDat
     files,
     loading,
     loadingDirs,
+    errorDirs,
     refreshFiles,
     loadChildren,
+    retryLoadChildren,
   };
 }

@@ -45,7 +45,7 @@ export default function FileTree({ selectedProject, onFileOpen }: FileTreeProps)
     }
   }, [toast]);
 
-  const { files, loading, loadingDirs, refreshFiles, loadChildren } = useFileTreeData(selectedProject);
+  const { files, loading, loadingDirs, errorDirs, refreshFiles, loadChildren, retryLoadChildren } = useFileTreeData(selectedProject);
   const { viewMode, changeViewMode } = useFileTreeViewMode();
   const { expandedDirs, toggleDirectory, expandDirectories, collapseAll } = useExpandedDirectories();
   const { searchQuery, setSearchQuery, filteredFiles } = useFileTreeSearch({
@@ -114,6 +114,15 @@ export default function FileTree({ selectedProject, onFileOpen }: FileTreeProps)
       onFileOpen?.(item.path);
     },
     [onFileOpen, selectedProject, toggleDirectory, expandedDirs, loadChildren],
+  );
+
+  const handleRetryLoad = useCallback(
+    (item: FileTreeNode) => {
+      if (selectedProject) {
+        void retryLoadChildren(selectedProject.name, item.path);
+      }
+    },
+    [selectedProject, retryLoadChildren],
   );
 
   const formatRelativeTimeLabel = useCallback(
@@ -199,7 +208,9 @@ export default function FileTree({ selectedProject, onFileOpen }: FileTreeProps)
           viewMode={viewMode}
           expandedDirs={expandedDirs}
           loadingDirs={loadingDirs}
+          errorDirs={errorDirs}
           onItemClick={handleItemClick}
+          onRetryLoad={handleRetryLoad}
           renderFileIcon={renderFileIcon}
           formatFileSize={formatFileSize}
           formatRelativeTime={formatRelativeTimeLabel}

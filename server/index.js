@@ -956,7 +956,7 @@ app.get('/api/projects/:projectName/files', authenticateToken, async (req, res) 
             return res.status(404).json({ error: `Project path not found: ${actualPath}` });
         }
 
-        const files = await getFileTree(actualPath, 0, 0, true);
+        const files = await getFileTree(actualPath, 1, 0, true);
         res.json(files);
     } catch (error) {
         console.error('[ERROR] File tree error:', error.message);
@@ -1758,8 +1758,8 @@ function handleShellConnection(ws) {
                     // Build shell command — use cwd for project path (never interpolate into shell string)
                     let shellCommand;
                     if (isPlainShell) {
-                        // Plain shell mode - run the initial command in the project directory
-                        shellCommand = initialCommand;
+                        // Plain shell mode - run the initial command, or open interactive shell
+                        shellCommand = initialCommand || null;
                     } else if (provider === 'cursor') {
                         if (hasSession && sessionId) {
                             shellCommand = `cursor-agent --resume="${sessionId}"`;
@@ -1822,7 +1822,9 @@ function handleShellConnection(ws) {
 
                     // Use appropriate shell based on platform
                     const shell = os.platform() === 'win32' ? 'powershell.exe' : 'bash';
-                    const shellArgs = os.platform() === 'win32' ? ['-Command', shellCommand] : ['-c', shellCommand];
+                    const shellArgs = shellCommand
+                        ? (os.platform() === 'win32' ? ['-Command', shellCommand] : ['-c', shellCommand])
+                        : (os.platform() === 'win32' ? [] : ['--login']);
 
                     // Use terminal dimensions from client if provided, otherwise use defaults
                     const termCols = data.cols || 80;

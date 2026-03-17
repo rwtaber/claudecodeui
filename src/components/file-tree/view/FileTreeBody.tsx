@@ -12,7 +12,9 @@ type FileTreeBodyProps = {
   viewMode: FileTreeViewMode;
   expandedDirs: Set<string>;
   loadingDirs?: Set<string>;
+  errorDirs?: Set<string>;
   onItemClick: (item: FileTreeNode) => void;
+  onRetryLoad?: (item: FileTreeNode) => void;
   renderFileIcon: (filename: string) => ReactNode;
   formatFileSize: (bytes?: number) => string;
   formatRelativeTime: (date?: string) => string;
@@ -40,7 +42,9 @@ export default function FileTreeBody({
   viewMode,
   expandedDirs,
   loadingDirs,
+  errorDirs,
   onItemClick,
+  onRetryLoad,
   renderFileIcon,
   formatFileSize,
   formatRelativeTime,
@@ -81,7 +85,9 @@ export default function FileTreeBody({
           viewMode={viewMode}
           expandedDirs={expandedDirs}
           loadingDirs={loadingDirs}
+          errorDirs={errorDirs}
           onItemClick={onItemClick}
+          onRetryLoad={onRetryLoad}
           renderFileIcon={renderFileIcon}
           formatFileSize={formatFileSize}
           formatRelativeTime={formatRelativeTime}

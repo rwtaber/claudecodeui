@@ -6,6 +6,8 @@ type ShellHeaderProps = {
   sessionDisplayNameShort: string | null;
   onDisconnect: () => void;
   onRestart: () => void;
+  shellMode?: 'claude' | 'plain';
+  onToggleShellMode?: () => void;
   statusNewSessionText: string;
   statusInitializingText: string;
   statusRestartingText: string;
@@ -24,6 +26,8 @@ export default function ShellHeader({
   sessionDisplayNameShort,
   onDisconnect,
   onRestart,
+  shellMode = 'claude',
+  onToggleShellMode,
   statusNewSessionText,
   statusInitializingText,
   statusRestartingText,
@@ -38,6 +42,44 @@ export default function ShellHeader({
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-2">
           <div className={`h-2 w-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`} />
+
+          {onToggleShellMode && (
+            <div className="flex items-center rounded-md bg-gray-700/50 p-0.5">
+              <button
+                onClick={shellMode === 'plain' ? onToggleShellMode : undefined}
+                disabled={isRestarting}
+                className={`flex items-center gap-1 rounded px-2 py-0.5 text-xs transition-colors ${
+                  shellMode === 'claude'
+                    ? 'bg-gray-600 text-white shadow-sm'
+                    : 'text-gray-400 hover:text-gray-200'
+                } disabled:cursor-not-allowed disabled:opacity-50`}
+                title="Claude Code session"
+              >
+                <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 2L2 7l10 5 10-5-10-5z" />
+                  <path d="M2 17l10 5 10-5" />
+                  <path d="M2 12l10 5 10-5" />
+                </svg>
+                Claude
+              </button>
+              <button
+                onClick={shellMode === 'claude' ? onToggleShellMode : undefined}
+                disabled={isRestarting}
+                className={`flex items-center gap-1 rounded px-2 py-0.5 text-xs transition-colors ${
+                  shellMode === 'plain'
+                    ? 'bg-gray-600 text-white shadow-sm'
+                    : 'text-gray-400 hover:text-gray-200'
+                } disabled:cursor-not-allowed disabled:opacity-50`}
+                title="Plain terminal"
+              >
+                <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="4 17 10 11 4 5" />
+                  <line x1="12" y1="19" x2="20" y2="19" />
+                </svg>
+                Terminal
+              </button>
+            </div>
+          )}
 
           {hasSession && sessionDisplayNameShort && (
             <span className="text-xs text-blue-300">({sessionDisplayNameShort}...)</span>

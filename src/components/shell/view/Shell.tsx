@@ -43,10 +43,13 @@ export default function Shell({
   isActive = true,
 }: ShellProps) {
   const { t } = useTranslation('chat');
+  const [shellMode, setShellMode] = useState<'claude' | 'plain'>(isPlainShell ? 'plain' : 'claude');
   const [isRestarting, setIsRestarting] = useState(false);
   const [cliPromptOptions, setCliPromptOptions] = useState<CliPromptOption[] | null>(null);
   const promptCheckTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const onOutputRef = useRef<(() => void) | null>(null);
+
+  const effectiveIsPlainShell = shellMode === 'plain';
 
   const {
     terminalContainerRef,
@@ -63,9 +66,9 @@ export default function Shell({
     copyAuthUrlToClipboard,
   } = useShellRuntime({
     selectedProject,
-    selectedSession,
+    selectedSession: effectiveIsPlainShell ? null : selectedSession,
     initialCommand,
-    isPlainShell,
+    isPlainShell: effectiveIsPlainShell,
     minimal,
     autoConnect,
     isRestarting,
@@ -196,6 +199,11 @@ export default function Shell({
     }, SHELL_RESTART_DELAY_MS);
   }, []);
 
+  const handleToggleShellMode = useCallback(() => {
+    setShellMode((prev) => (prev === 'claude' ? 'plain' : 'claude'));
+    handleRestartShell();
+  }, [handleRestartShell]);
+
   if (!selectedProject) {
     return (
       <ShellEmptyState
@@ -219,7 +227,7 @@ export default function Shell({
     );
   }
 
-  const readyDescription = isPlainShell
+  const readyDescription = effectiveIsPlainShell
     ? t('shell.runCommand', {
         command: initialCommand || t('shell.defaultCommand'),
         projectName: selectedProject.displayName,
@@ -228,7 +236,7 @@ export default function Shell({
       ? t('shell.resumeSession', { displayName: sessionDisplayNameLong })
       : t('shell.startSession');
 
-  const connectingDescription = isPlainShell
+  const connectingDescription = effectiveIsPlainShell
     ? t('shell.runCommand', {
         command: initialCommand || t('shell.defaultCommand'),
         projectName: selectedProject.displayName,
@@ -248,6 +256,8 @@ export default function Shell({
         sessionDisplayNameShort={sessionDisplayNameShort}
         onDisconnect={disconnectFromShell}
         onRestart={handleRestartShell}
+        shellMode={shellMode}
+        onToggleShellMode={handleToggleShellMode}
         statusNewSessionText={t('shell.status.newSession')}
         statusInitializingText={t('shell.status.initializing')}
         statusRestartingText={t('shell.status.restarting')}

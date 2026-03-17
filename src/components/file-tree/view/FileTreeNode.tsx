@@ -1,5 +1,5 @@
 import type { ReactNode, RefObject } from 'react';
-import { ChevronRight, Folder, FolderOpen } from 'lucide-react';
+import { AlertTriangle, ChevronRight, Folder, FolderOpen } from 'lucide-react';
 import { cn } from '../../../lib/utils';
 import type { FileTreeNode as FileTreeNodeType, FileTreeViewMode } from '../types/types';
 import { Input } from '../../../shared/view/ui';
@@ -11,7 +11,9 @@ type FileTreeNodeProps = {
   viewMode: FileTreeViewMode;
   expandedDirs: Set<string>;
   loadingDirs?: Set<string>;
+  errorDirs?: Set<string>;
   onItemClick: (item: FileTreeNodeType) => void;
+  onRetryLoad?: (item: FileTreeNodeType) => void;
   renderFileIcon: (filename: string) => ReactNode;
   formatFileSize: (bytes?: number) => string;
   formatRelativeTime: (date?: string) => string;
@@ -66,7 +68,9 @@ export default function FileTreeNode({
   viewMode,
   expandedDirs,
   loadingDirs,
+  errorDirs,
   onItemClick,
+  onRetryLoad,
   renderFileIcon,
   formatFileSize,
   formatRelativeTime,
@@ -89,6 +93,7 @@ export default function FileTreeNode({
   const isOpen = isDirectory && expandedDirs.has(item.path);
   const hasChildren = Boolean(isDirectory && item.children && item.children.length > 0);
   const isLoadingChildren = isDirectory && loadingDirs?.has(item.path);
+  const hasLoadError = isDirectory && errorDirs?.has(item.path);
   const isRenaming = renamingItem?.path === item.path;
 
   const nameClassName = cn(
@@ -218,6 +223,23 @@ export default function FileTreeNode({
               Loading…
             </div>
           )}
+          {hasLoadError && !isLoadingChildren && (
+            <div
+              className="flex items-center gap-2 py-1 text-xs text-red-400"
+              style={{ paddingLeft: `${(level + 1) * 16 + 4}px` }}
+            >
+              <AlertTriangle className="h-3 w-3" />
+              <span>Failed to load</span>
+              {onRetryLoad && (
+                <button
+                  className="text-blue-400 hover:underline"
+                  onClick={(e) => { e.stopPropagation(); onRetryLoad(item); }}
+                >
+                  Retry
+                </button>
+              )}
+            </div>
+          )}
           {hasChildren && item.children?.map((child) => (
             <FileTreeNode
               key={child.path}
@@ -226,7 +248,9 @@ export default function FileTreeNode({
               viewMode={viewMode}
               expandedDirs={expandedDirs}
               loadingDirs={loadingDirs}
+              errorDirs={errorDirs}
               onItemClick={onItemClick}
+              onRetryLoad={onRetryLoad}
               renderFileIcon={renderFileIcon}
               formatFileSize={formatFileSize}
               formatRelativeTime={formatRelativeTime}
